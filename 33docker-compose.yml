@@ -1,0 +1,70 @@
+# docker-compose.yml
+
+networks:
+  k6:
+  grafana:
+
+services:
+  influxdb:
+    image: influxdb:1.8
+    networks: [k6, grafana]
+    # Expose only inside Docker; avoids host port conflicts on 8086.
+    # If you need host access, uncomment the next two lines and use 8087 on host:
+    # ports:
+    #   - "8087:8086"
+    environment:
+      - INFLUXDB_DB=k6
+    healthcheck:
+      # Use CMD-SHELL so it runs even if sh is the shell; keep wget since 1.8 image has it.
+      # If your image lacks wget, replace with: "curl -fsS http://localhost:8086/ping || exit 1"
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8086/ping || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:8.5.21
+    networks: [grafana]
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_BASIC_ENABLED=false
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - ./dashboards:/var/lib/grafana/dashboards
+      - ./grafana-dashboard.yaml:/etc/grafana/provisioning/dashboards/dashboard.yaml
+      - ./grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  chronograf:
+    image: chronograf:1.8
+    networks: [k6]
+    ports:
+      - "8888:8888"
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_USERNAME=root
+      - INFLUXDB_PASSWORD=root
+      - INFLUXDB_SKIP_VERIFY=true
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    restart: unless-stopped
+  
+  k6:
+    image: grafana/k6:latest
+    networks: [k6]
+    environment:
+      - K6_OUT=influxdb=http://influxdb:8086/k6
+    volumes:
+      - ./SRC:/SRC
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    restart: "no"   # runs ad-hoc tests; change if you want a long-running container

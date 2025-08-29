@@ -1,0 +1,137 @@
+{
+  "title": "k6 VU Demo (plugin-free)",
+  "timezone": "",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-15m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "ds",
+        "query": "influxdb",
+        "label": "InfluxDB (k6)",
+        "current": {}
+      },
+      {
+        "type": "textbox",
+        "name": "testid",
+        "label": "testid tag (optional)",
+        "query": ""
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "VUs (current)",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": "$ds",
+      "targets": [
+        {
+          "query": "SELECT last(\"value\") FROM \"vus\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "measurement": "vus",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Failure rate (%)",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": "$ds",
+      "targets": [
+        {
+          "query": "SELECT mean(\"value\")*100 FROM \"http_req_failed\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "p90 duration (ms)",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": "$ds",
+      "targets": [
+        {
+          "query": "SELECT percentile(\"value\",90) FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 duration (ms)",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 7 },
+      "datasource": "$ds",
+      "targets": [
+        {
+          "query": "SELECT percentile(\"value\",95) FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests / sec",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 7 },
+      "datasource": "$ds",
+      "targets": [
+        {
+          "query": "SELECT non_negative_derivative(sum(\"value\")) FROM \"http_reqs\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "req/s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Iterations / sec",
+      "gridPos": { "x": 0, "y": 11, "w": 12, "h": 7 },
+      "datasource": "$ds",
+      "targets": [
+        {
+          "query": "SELECT non_negative_derivative(sum(\"value\")) FROM \"iterations\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "type": "stat",
+      "title": "Checks pass (%) – status 2xx",
+      "gridPos": { "x": 12, "y": 11, "w": 6, "h": 7 },
+      "datasource": "$ds",
+      "targets": [
+        {
+          "query": "SELECT mean(\"value\")*100 FROM \"checks\" WHERE $timeFilter AND (\"check\"='status 2xx') GROUP BY time($__interval) fill(null)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Status codes (stacked)",
+      "gridPos": { "x": 18, "y": 11, "w": 6, "h": 7 },
+      "datasource": "$ds",
+      "targets": [
+        {
+          "query": "SELECT sum(\"value\") FROM \"by_status\" WHERE $timeFilter GROUP BY time($__interval), \"status\" fill(null)",
+          "resultFormat": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "options": { "legend": { "displayMode": "table" } }
+    }
+  ]
+}
